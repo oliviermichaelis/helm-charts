@@ -102,8 +102,8 @@ affinity: {}
 postgresql:
   enabled: true
   image:
-    repository: postgres
-    tag: "13"
+    #repository: postgres
+    #tag: "13"
   postgresqlPassword: changeme
   postgresqlDatabase: fireflyiii
   #existingSecret:
