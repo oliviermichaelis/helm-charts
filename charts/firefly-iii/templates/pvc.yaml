@@ -1,0 +1,26 @@
+{{- if .Values.persistence.enabled }}
+{{- if not .Values.persistence.existingClaim }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ template "firefly-iii.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "firefly-iii.name" . }}
+    helm.sh/chart: {{ include "firefly-iii.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Mi
+{{- if .Values.persistence.storageClass }}
+{{- if (eq "-" .Values.persistence.storageClass) }}
+  storageClassName: ""
+{{- else }}
+  storageClassName: "{{ .Values.persistence.storageClass }}"
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

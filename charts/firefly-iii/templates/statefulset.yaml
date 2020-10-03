@@ -1,0 +1,116 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "firefly-iii.fullname" . }}
+  labels:
+    {{- include "firefly-iii.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "firefly-iii.selectorLabels" . | nindent 6 }}
+  serviceName: {{ include "firefly-iii.fullname" . }}
+  template:
+    metadata:
+    {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      labels:
+        {{- include "firefly-iii.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "firefly-iii.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /register
+              port: http
+            initialDelaySeconds: 25
+          readinessProbe:
+            httpGet:
+              path: /register
+              port: http
+            initialDelaySeconds: 25
+          {{- with .Values.fireflyiii }}
+          env:
+            - name: APP_ENV
+              value: {{ .env.appEnv}}
+            {{- if .secrets.existingSecret }}
+            - name: APP_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .secrets.existingSecret }}
+                  key: APP_KEY
+            {{- else }}
+            - name: APP_KEY
+              value: {{ .secrets.appKey}}
+            {{- end }}
+            - name: DB_CONNECTION
+              value: {{ .database.dbConnection }}
+            - name: DB_HOST
+              value: {{ .database.dbHost | quote }}
+            - name: DB_DATABASE
+              value: {{ .database.dbDatabase | quote }}
+            {{- if .database.existingSecret}}
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .database.existingSecret }}
+                  key: DB_USERNAME
+            - name: DB_PASSWORD 
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .database.existingSecret }}
+                  key: DB_PASSWORD
+            {{- else }}
+            - name: DB_USERNAME
+              value: {{ .database.dbUsername | quote }}
+            - name: DB_PASSWORD
+              value: {{ .database.dbPassword | quote }}
+            {{- end }}
+            - name: TRUSTED_PROXIES
+              value: {{ .env.trustedProxies | quote }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- if .Values.persistence.enabled }}
+          volumeMounts:
+            - mountPath: "/var/www/firefly-iii/storage/export"
+              name: firefly-iii
+              subPath: export
+            - mountPath: "/var/www/firefly-iii/storage/upload"
+              name: firefly-iii
+              subPath: upload
+          {{- end }}
+      {{- if .Values.persistence.enabled }}
+      volumes:
+        - name: firefly-iii
+          persistentVolumeClaim:
+            claimName: {{ if not .Values.persistence.existingClaim }}{{ template "firefly-iii.fullname" . }}{{ else }}{{ .Values.persistence.existingClaim }}{{ end }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
